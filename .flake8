@@ -1,0 +1,11 @@
+[flake8]
+max-line-length = 79
+exclude =
+    .git,
+    __pycache__,
+    old,
+    build,
+    dist,
+    eggs,
+    develop-eggs,
+    bootstrap-buildout.py
