@@ -3,18 +3,22 @@ import fanstatic
 import pathlib
 import importscan
 import uvcreha.app
+import uvcreha.user
 import uvcreha.browser
-import uvcreha.auth
 import uvcreha.emailer
-import uvcreha.auth.utilities
 import reiter.view.utils
+import reiter.auth.meta
+import reiter.auth.filters
+import reiter.auth.components
+import reiter.auth.utilities
+
 
 from reha.prototypes.workflows.user import user_workflow
 from reiter.application.app import BrowserApplication
+from reiter.application.browser import TemplateLoader
 from reiter.events.meta import Subscribers
 from roughrider.routing.route import NamedRoutes
-from uvcreha import plugins
-from uvcreha.auth import filters as auth_filters
+from uvcreha import plugins, user
 from uvcreha.request import Request
 
 
@@ -29,15 +33,14 @@ session = plugins.session_middleware(
 )
 
 # authentication
-class User(uvcreha.auth.User):
-
-    id: str
+class User(uvcreha.user.User):
 
     def __init__(self, login):
         self.id = login
+        self.title = f"User <{login}>"
 
 
-class Source:
+class Source(reiter.auth.meta.Source):
 
     _users = {
         'admin': "admin"
@@ -53,20 +56,20 @@ class Source:
             return User(loginname)
 
 
-authentication = uvcreha.auth.Auth(
+authentication = reiter.auth.components.Auth(
     user_key="test.principal",
     session_key=session.environ_key,
     sources=[Source()],
     filters=(
-        auth_filters.security_bypass([
+        reiter.auth.filters.security_bypass([
             "/login"
         ]),
-        auth_filters.secured(path="/login"),
-        auth_filters.filter_user_state(states=(
+        reiter.auth.filters.secured(path="/login"),
+        reiter.auth.filters.filter_user_state(states=(
             user_workflow.states.inactive,
             user_workflow.states.closed
         )),
-        auth_filters.TwoFA(path="/2FA")
+        reiter.auth.filters.TwoFA(path="/2FA")
     )
 )
 
@@ -97,7 +100,7 @@ emailer = uvcreha.emailer.SecureMailer(
 )
 
 # 2FA
-twoFA = uvcreha.auth.utilities.TwoFA(
+twoFA = reiter.auth.utilities.TwoFA(
   session_key=session.environ_key
 )
 
@@ -119,12 +122,26 @@ app = BrowserApplication(
 
 # my routes
 import uvcreha.browser.login
+import uvcreha.browser.twoFA
 
 app.routes.register('/login')(uvcreha.browser.login.LoginForm)
+app.routes.register('/2FA')(uvcreha.browser.twoFA.TwoFA)
+
+
+TEMPLATES = TemplateLoader(".")
+
+
+@app.routes.register('/')
+class Index(uvcreha.browser.Page):
+
+    template = TEMPLATES['index']
+
+    def GET(self):
+        return {}
 
 
 
-importscan.scan(uvcreha.browser)
+importscan.scan(uvcreha.browser.layout)  # gathering UI elements.
 
 # Run me
 bjoern.run(
