@@ -2,30 +2,28 @@ import bjoern
 import fanstatic
 import pathlib
 import importscan
-import uvcreha.app
+import uvcreha
 import uvcreha.user
 import uvcreha.browser
 import uvcreha.emailer
-import reiter.view.utils
+import uvcreha.plugins
+import uvcreha.request
 import reiter.auth.meta
 import reiter.auth.filters
 import reiter.auth.components
 import reiter.auth.utilities
+import reha.sql
 
-
+from dataclasses import field
 from reha.prototypes.workflows.user import user_workflow
 from reiter.application.app import BrowserApplication
 from reiter.application.browser import TemplateLoader
-from reiter.events.meta import Subscribers
-from roughrider.routing.route import NamedRoutes
-from uvcreha import plugins, user
-from uvcreha.request import Request
 
 
 ### Middlewares
 
 # Session
-session = plugins.session_middleware(
+session = uvcreha.plugins.session_middleware(
     cache=pathlib.Path("var/sessions"),
     cookie_name="uvcreha.cookie",
     cookie_secret="secret",
@@ -77,13 +75,13 @@ authentication = reiter.auth.components.Auth(
 ### Utilities
 
 # flash
-flash = plugins.flash_messages(
+flash = uvcreha.plugins.flash_messages(
   session_key=session.environ_key
 )
 
 
 # webpush
-webpush = plugins.webpush_plugin(
+webpush = uvcreha.plugins.webpush_plugin(
     public_key=pathlib.Path("identities/public_key.pem"),
     private_key=pathlib.Path("identities/private_key.pem"),
     vapid_claims={
@@ -105,29 +103,54 @@ twoFA = reiter.auth.utilities.TwoFA(
 )
 
 
+# SQL engine
+from roughrider.sqlalchemy.component import SQLAlchemyEngine
+
+
+sql = SQLAlchemyEngine.from_url(
+    name="sql",
+    url="sqlite:///example.db"
+)
+
+
+# Request
+class SQLRequest(uvcreha.request.Request):
+
+    def __init__(self, session, *args, **kwargs):
+        self.session = session
+        super().__init__(*args, **kwargs)
+
+    def get_database(self):
+        return self.session
+
+
 # Application
-app = BrowserApplication(
-    ui=uvcreha.app.ui,
-    routes=NamedRoutes(extractor=reiter.view.utils.routables),
-    request_factory=Request,
+class SQLApplication(BrowserApplication):
+
+    def resolve(self, path: str, environ: dict):
+        route = self.routes.match_method(path, environ['REQUEST_METHOD'])
+        if route is not None:
+            with self.utilities['sqlengine'].session() as session:
+                request = SQLRequest(session, self, environ, route)
+                return route.endpoint(request, **route.params)
+
+
+app = SQLApplication(
+    ui=uvcreha.browser.ui,
+    routes=uvcreha.browser.routes,
     utilities={
         "webpush": webpush,
         "emailer": emailer,
         "flash": flash,
         "authentication": authentication,
-        "twoFA": twoFA
+        "twoFA": twoFA,
+        "sqlengine": sql,
+        "contents": reha.sql.contents,
     }
 )
 
 
-# my routes
-import uvcreha.browser.login
-import uvcreha.browser.twoFA
-
-app.routes.register('/login')(uvcreha.browser.login.LoginForm)
-app.routes.register('/2FA')(uvcreha.browser.twoFA.TwoFA)
-
-
+# My views
 TEMPLATES = TemplateLoader(".")
 
 
@@ -140,8 +163,13 @@ class Index(uvcreha.browser.Page):
         return {}
 
 
+importscan.scan(reha.sql)  # gathering content types
+importscan.scan(uvcreha.browser)  # gathering UI elements.
 
-importscan.scan(uvcreha.browser.layout)  # gathering UI elements.
+
+# create tables
+reha.sql.mappers.metadata.create_all(sql.engine)
+
 
 # Run me
 bjoern.run(

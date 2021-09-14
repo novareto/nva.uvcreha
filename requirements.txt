@@ -2,22 +2,26 @@ importscan
 colorlog
 bjoern
 fanstatic
+sqlalchemy
 
 git+https://github.com/HorsemanWSGI/horseman.git#egg=horseman
-git+https://github.com/HorsemanWSGI/roughrider.cors.git#egg=roughrider.cors
-git+https://github.com/HorsemanWSGI/roughrider.routing.git#egg=roughrider.routing
 git+https://github.com/HorsemanWSGI/roughrider.contenttypes.git#egg=roughrider.contenttypes
+git+https://github.com/HorsemanWSGI/roughrider.cors.git#egg=roughrider.cors
 git+https://github.com/HorsemanWSGI/roughrider.predicate.git#egg=roughrider.predicate
-git+https://github.com/HorsemanWSGI/roughrider.workflow.git#egg=roughrider.workflow
+git+https://github.com/HorsemanWSGI/roughrider.routing.git#egg=roughrider.routing
 git+https://github.com/HorsemanWSGI/roughrider.selenium#egg=roughrider.selenium
-git+https://github.com/novareto/reiter.amqp.git#egg=reiter.amqp
-git+https://github.com/novareto/reiter.view.git#egg=reiter.view
-git+https://github.com/novareto/reiter.form.git#egg=reiter.form
-git+https://github.com/novareto/reiter.events.git#egg=reiter.events
-git+https://github.com/novareto/reiter.jsonschema.git#egg=reiter.jsonschema
-git+https://github.com/novareto/reiter.application.git#egg=reiter.application
+git+https://github.com/HorsemanWSGI/roughrider.workflow.git#egg=roughrider.workflow
 git+https://github.com/novareto/jsonschema_wtforms.git#egg=jsonschema_wtforms
+git+https://github.com/novareto/reiter.amqp.git#egg=reiter.amqp
+git+https://github.com/novareto/reiter.application.git#egg=reiter.application
+git+https://github.com/novareto/reiter.events.git#egg=reiter.events
+git+https://github.com/novareto/reiter.form.git#egg=reiter.form
+git+https://github.com/novareto/reiter.jsonschema.git#egg=reiter.jsonschema
+git+https://github.com/novareto/reiter.view.git#egg=reiter.view
+git+ssh://git@github.com/HorsemanWSGI/roughrider.sqlalchemy.git#egg=roughrider.sqlalchemy
 
--e git+https://github.com/novareto/reiter.auth.git#egg=reiter.auth
+-e git+ssh://git@github.com/novareto/reiter.auth.git#egg=reiter.auth
+-e git+ssh://git@github.com/novareto/reiter.contenttypes.git#egg=reiter.contenttypes
+-e git+ssh://git@github.com/novareto/reha.sql.git#egg=reha.sql
 -e git+ssh://git@github.com/novareto/reha.prototypes.git#egg=reha.prototypes
 -e git+ssh://git@github.com/novareto/uvcreha.git@packaged#egg=uvcreha
