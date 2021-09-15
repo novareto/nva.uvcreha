@@ -19,6 +19,7 @@ git+https://github.com/novareto/reiter.form.git#egg=reiter.form
 git+https://github.com/novareto/reiter.jsonschema.git#egg=reiter.jsonschema
 git+https://github.com/novareto/reiter.view.git#egg=reiter.view
 git+ssh://git@github.com/HorsemanWSGI/roughrider.sqlalchemy.git#egg=roughrider.sqlalchemy
+git+ssh://git@github.com/novareto/reiter.versioning.git#egg=reiter.versioning
 
 -e git+ssh://git@github.com/novareto/reiter.auth.git#egg=reiter.auth
 -e git+ssh://git@github.com/novareto/reiter.contenttypes.git#egg=reiter.contenttypes

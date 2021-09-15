@@ -194,6 +194,12 @@ importscan.scan(uvcreha.api)  # added API routes.
 reha.sql.mappers.metadata.create_all(sql.engine)
 
 
+# Load content types
+from uvcreha.contents import load_content_types
+
+load_content_types(pathlib.Path("./content_types"))
+
+
 # URL Mapping
 from horseman.mapping import Mapping
 
