@@ -5,6 +5,7 @@ import importscan
 import uvcreha
 import uvcreha.user
 import uvcreha.browser
+import uvcreha.contents
 import uvcreha.emailer
 import uvcreha.plugins
 import uvcreha.request
@@ -16,7 +17,7 @@ import reha.sql
 
 from dataclasses import field
 from reha.prototypes.workflows.user import user_workflow
-from reiter.application.app import BrowserApplication
+from reiter.application.app import Application, BrowserApplication
 from reiter.application.browser import TemplateLoader
 
 
@@ -125,7 +126,7 @@ class SQLRequest(uvcreha.request.Request):
 
 
 # Application
-class SQLApplication(BrowserApplication):
+class SQLResolver:
 
     def resolve(self, path: str, environ: dict):
         route = self.routes.match_method(path, environ['REQUEST_METHOD'])
@@ -135,7 +136,15 @@ class SQLApplication(BrowserApplication):
                 return route.endpoint(request, **route.params)
 
 
-app = SQLApplication(
+class SQLApplication(BrowserApplication, SQLResolver):
+    pass
+
+
+class SQLAPI(Application, , SQLResolver):
+    pass
+
+
+browser_app = SQLApplication(
     ui=uvcreha.browser.ui,
     routes=uvcreha.browser.routes,
     utilities={
@@ -145,7 +154,17 @@ app = SQLApplication(
         "authentication": authentication,
         "twoFA": twoFA,
         "sqlengine": sql,
-        "contents": reha.sql.contents,
+        "contents": uvcreha.contents.registry,
+    }
+)
+
+api_app = SQLAPI(
+    routes=uvcreha.api.routes,
+    utilities={
+        "webpush": webpush,
+        "emailer": emailer,
+        "sqlengine": sql,
+        "contents": uvcreha.contents.registry,
     }
 )
 
@@ -165,10 +184,15 @@ class Index(uvcreha.browser.Page):
 
 importscan.scan(reha.sql)  # gathering content types
 importscan.scan(uvcreha.browser)  # gathering UI elements.
+importscan.scan(uvcreha.api)  # added API routes.
 
 
 # create tables
 reha.sql.mappers.metadata.create_all(sql.engine)
+
+
+# URL Mapping
+from horseman.mapping import Mapping
 
 
 # Run me
@@ -176,15 +200,18 @@ bjoern.run(
     host="0.0.0.0",
     port=8080,
     reuse_port=True,
-    wsgi_app=fanstatic.Fanstatic(
-        session(
-            authentication(
-                app
-            )
+    wsgi_app=Mapping({
+        "/": fanstatic.Fanstatic(
+            session(
+                authentication(
+                    browser_app
+                )
+            ),
+            compile=True,
+            recompute_hashes=True,
+            bottom=True,
+            publisher_signature="static"
         ),
-        compile=True,
-        recompute_hashes=True,
-        bottom=True,
-        publisher_signature="static"
-    )
+        "/api": api_app
+    })
 )
