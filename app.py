@@ -3,6 +3,7 @@ import fanstatic
 import pathlib
 import importscan
 import uvcreha
+import uvcreha.api
 import uvcreha.user
 import uvcreha.browser
 import uvcreha.contents
@@ -140,7 +141,7 @@ class SQLApplication(BrowserApplication, SQLResolver):
     pass
 
 
-class SQLAPI(Application, , SQLResolver):
+class SQLAPI(Application, SQLResolver):
     pass
 
 
@@ -173,7 +174,7 @@ api_app = SQLAPI(
 TEMPLATES = TemplateLoader(".")
 
 
-@app.routes.register('/')
+@browser_app.routes.register('/')
 class Index(uvcreha.browser.Page):
 
     template = TEMPLATES['index']
