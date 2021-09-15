@@ -137,17 +137,18 @@ class SQLResolver:
                 return route.endpoint(request, **route.params)
 
 
-class SQLApplication(BrowserApplication, SQLResolver):
+class SQLApplication(SQLResolver, BrowserApplication):
     pass
 
 
-class SQLAPI(Application, SQLResolver):
+class SQLAPI(SQLResolver, Application):
     pass
 
 
 browser_app = SQLApplication(
     ui=uvcreha.browser.ui,
     routes=uvcreha.browser.routes,
+    request_factory=SQLRequest,
     utilities={
         "webpush": webpush,
         "emailer": emailer,
@@ -161,6 +162,7 @@ browser_app = SQLApplication(
 
 api_app = SQLAPI(
     routes=uvcreha.api.routes,
+    request_factory=SQLRequest,
     utilities={
         "webpush": webpush,
         "emailer": emailer,
