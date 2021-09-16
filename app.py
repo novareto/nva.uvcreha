@@ -42,9 +42,8 @@ class User(uvcreha.user.User):
 
 class Source(reiter.auth.meta.Source):
 
-    _users = {
-        'admin': "admin"
-    }
+    def __init__(self, users: dict):
+        self._users = users
 
     def find(self, credentials: dict):
         if credentials['login'] in self._users:
@@ -57,9 +56,9 @@ class Source(reiter.auth.meta.Source):
 
 
 authentication = reiter.auth.components.Auth(
-    user_key="test.principal",
+    user_key="uvcreha.principal",
     session_key=session.environ_key,
-    sources=[Source()],
+    sources=[Source({"test": "test"})],
     filters=(
         reiter.auth.filters.security_bypass([
             "/login"
@@ -125,6 +124,14 @@ class SQLRequest(uvcreha.request.Request):
     def get_database(self):
         return self.session
 
+    def content_type(self, name):
+        ct = self.app.utilities['contents'][name]
+        crud = ct.bind(
+            self.request.app,
+            self.request.get_database()
+        )
+        return ct, crud
+
 
 # Application
 class SQLResolver:
@@ -171,6 +178,44 @@ api_app = SQLAPI(
     }
 )
 
+# Backend
+import reha.client
+import reha.client.app
+
+admin_authentication = reiter.auth.components.Auth(
+    user_key="backend.principal",
+    session_key=session.environ_key,
+    sources=[Source({"admin": "admin"})],
+    filters=(
+        reiter.auth.filters.security_bypass([
+            "/login"
+        ]),
+        reiter.auth.filters.secured(path="/login"),
+        reiter.auth.filters.filter_user_state(states=(
+            user_workflow.states.inactive,
+            user_workflow.states.closed
+        )),
+    )
+)
+
+class SQLAdminRequest(reha.client.app.AdminRequest, SQLRequest):
+    pass
+
+
+backend_app = SQLApplication(
+    ui=uvcreha.browser.ui,
+    routes=reha.client.app.routes,
+    request_factory=SQLAdminRequest,
+    utilities={
+        "webpush": webpush,
+        "emailer": emailer,
+        "flash": flash,
+        "authentication": admin_authentication,
+        "sqlengine": sql,
+        "contents": uvcreha.contents.registry,
+    }
+)
+
 
 # My views
 TEMPLATES = TemplateLoader(".")
@@ -188,6 +233,7 @@ class Index(uvcreha.browser.Page):
 importscan.scan(reha.sql)  # gathering content types
 importscan.scan(uvcreha.browser)  # gathering UI elements.
 importscan.scan(uvcreha.api)  # added API routes.
+importscan.scan(reha.client)  # backend
 
 
 # create tables
@@ -214,6 +260,17 @@ bjoern.run(
             session(
                 authentication(
                     browser_app
+                )
+            ),
+            compile=True,
+            recompute_hashes=True,
+            bottom=True,
+            publisher_signature="static"
+        ),
+        "/backend": fanstatic.Fanstatic(
+            session(
+                admin_authentication(
+                    backend_app
                 )
             ),
             compile=True,
