@@ -22,9 +22,11 @@ git+ssh://git@github.com/HorsemanWSGI/roughrider.sqlalchemy.git#egg=roughrider.s
 git+ssh://git@github.com/novareto/reiter.versioning.git#egg=reiter.versioning
 
 
--e git+ssh://git@github.com/novareto/reiter.auth.git#egg=reiter.auth
--e git+ssh://git@github.com/novareto/reiter.contenttypes.git#egg=reiter.contenttypes
--e git+ssh://git@github.com/novareto/reha.sql.git#egg=reha.sql
 -e git+ssh://git@github.com/novareto/reha.client.git@packaged#egg=reha.client
 -e git+ssh://git@github.com/novareto/reha.prototypes.git#egg=reha.prototypes
+-e git+ssh://git@github.com/novareto/reha.siguv_theme#egg=reha.siguv_theme
+-e git+ssh://git@github.com/novareto/reha.ukh_theme#egg=reha.ukh_theme
+-e git+ssh://git@github.com/novareto/reha.sql.git#egg=reha.sql
+-e git+ssh://git@github.com/novareto/reiter.auth.git#egg=reiter.auth
+-e git+ssh://git@github.com/novareto/reiter.contenttypes.git#egg=reiter.contenttypes
 -e git+ssh://git@github.com/novareto/uvcreha.git@packaged#egg=uvcreha

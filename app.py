@@ -152,8 +152,12 @@ class SQLAPI(SQLResolver, Application):
     pass
 
 
+# import theme
+import reha.siguv_theme
+
+
 browser_app = SQLApplication(
-    ui=uvcreha.browser.ui,
+    ui=reha.siguv_theme.ui,
     routes=uvcreha.browser.routes,
     request_factory=SQLRequest,
     utilities={
@@ -203,7 +207,7 @@ class SQLAdminRequest(reha.client.app.AdminRequest, SQLRequest):
 
 
 backend_app = SQLApplication(
-    ui=uvcreha.browser.ui,
+    ui=reha.siguv_theme.ui,
     routes=reha.client.app.routes,
     request_factory=SQLAdminRequest,
     utilities={
@@ -231,9 +235,10 @@ class Index(uvcreha.browser.Page):
 
 
 importscan.scan(reha.sql)  # gathering content types
-importscan.scan(uvcreha.browser)  # gathering UI elements.
+importscan.scan(uvcreha.browser)  # gathering routes elements.
 importscan.scan(uvcreha.api)  # added API routes.
 importscan.scan(reha.client)  # backend
+importscan.scan(reha.siguv_theme)  # Collecting UI elements
 
 
 # create tables
