@@ -105,12 +105,17 @@ twoFA = reiter.auth.utilities.TwoFA(
 
 
 # SQL engine
+from reha.sql.crud import SQLCRUD
+from uvcreha.database import Database
 from roughrider.sqlalchemy.component import SQLAlchemyEngine
 
 
-sql = SQLAlchemyEngine.from_url(
-    name="sql",
-    url="sqlite:///example.db"
+database = Database(
+    engine=SQLAlchemyEngine.from_url(
+        name="sql",
+        url="sqlite:///example.db"
+    ),
+    binder=SQLCRUD
 )
 
 
@@ -124,12 +129,10 @@ class SQLRequest(uvcreha.request.Request):
     def get_database(self):
         return self.session
 
-    def content_type(self, name):
+    def get_crud(self, name):
         ct = self.app.utilities['contents'][name]
-        crud = ct.bind(
-            self.request.app,
-            self.request.get_database()
-        )
+        binder = self.app.utilities['database'].binder
+        crud = binder(ct.model, self.app, self.session)
         return ct, crud
 
 
@@ -139,7 +142,7 @@ class SQLResolver:
     def resolve(self, path: str, environ: dict):
         route = self.routes.match_method(path, environ['REQUEST_METHOD'])
         if route is not None:
-            with self.utilities['sqlengine'].session() as session:
+            with self.utilities['database'].engine.session() as session:
                 request = SQLRequest(session, self, environ, route)
                 return route.endpoint(request, **route.params)
 
@@ -152,12 +155,8 @@ class SQLAPI(SQLResolver, Application):
     pass
 
 
-# import theme
-import reha.siguv_theme
-
-
 browser_app = SQLApplication(
-    ui=reha.siguv_theme.ui,
+    ui=uvcreha.browser.ui,
     routes=uvcreha.browser.routes,
     request_factory=SQLRequest,
     utilities={
@@ -166,7 +165,7 @@ browser_app = SQLApplication(
         "flash": flash,
         "authentication": authentication,
         "twoFA": twoFA,
-        "sqlengine": sql,
+        "database": database,
         "contents": uvcreha.contents.registry,
     }
 )
@@ -177,7 +176,7 @@ api_app = SQLAPI(
     utilities={
         "webpush": webpush,
         "emailer": emailer,
-        "sqlengine": sql,
+        "database": database,
         "contents": uvcreha.contents.registry,
     }
 )
@@ -207,7 +206,7 @@ class SQLAdminRequest(reha.client.app.AdminRequest, SQLRequest):
 
 
 backend_app = SQLApplication(
-    ui=reha.siguv_theme.ui,
+    ui=uvcreha.browser.ui,
     routes=reha.client.app.routes,
     request_factory=SQLAdminRequest,
     utilities={
@@ -215,7 +214,7 @@ backend_app = SQLApplication(
         "emailer": emailer,
         "flash": flash,
         "authentication": admin_authentication,
-        "sqlengine": sql,
+        "database": database,
         "contents": uvcreha.contents.registry,
     }
 )
@@ -233,16 +232,22 @@ class Index(uvcreha.browser.Page):
     def GET(self):
         return {}
 
-
+importscan.scan(reha.prototypes)
 importscan.scan(reha.sql)  # gathering content types
 importscan.scan(uvcreha.browser)  # gathering routes elements.
 importscan.scan(uvcreha.api)  # added API routes.
 importscan.scan(reha.client)  # backend
-importscan.scan(reha.siguv_theme)  # Collecting UI elements
+
+
+# import themes
+# import reha.siguv_theme
+import reha.ukh_theme
+
+importscan.scan(reha.ukh_theme)  # Collecting UI elements
 
 
 # create tables
-reha.sql.mappers.metadata.create_all(sql.engine)
+reha.sql.mappers.metadata.create_all(database.engine.engine)
 
 
 # Load content types
