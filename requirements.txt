@@ -1,8 +1,8 @@
-importscan
-colorlog
-bjoern
-fanstatic
-sqlalchemy
+importscan == 0.2
+colorlog == 6.4.1
+bjoern == 3.1.0
+fanstatic == 1.0
+sqlalchemy == 1.4.11
 
 git+https://github.com/HorsemanWSGI/horseman.git#egg=horseman
 git+https://github.com/HorsemanWSGI/roughrider.contenttypes.git#egg=roughrider.contenttypes
@@ -25,6 +25,8 @@ git+ssh://git@github.com/novareto/reiter.versioning.git#egg=reiter.versioning
 -e git+ssh://git@github.com/novareto/reha.siguv_theme#egg=reha.siguv_theme
 -e git+ssh://git@github.com/novareto/reha.ukh_theme#egg=reha.ukh_theme
 -e git+ssh://git@github.com/novareto/reha.sql.git#egg=reha.sql
+-e git+ssh://git@github.com/novareto/reiter.arango.git#egg=reiter.arango
+-e git+ssh://git@github.com/novareto/reha.arango.git#egg=reha.arango
 -e git+ssh://git@github.com/novareto/reiter.auth.git#egg=reiter.auth
 -e git+ssh://git@github.com/novareto/reiter.contenttypes.git#egg=reiter.contenttypes
 

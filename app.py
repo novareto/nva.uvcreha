@@ -18,8 +18,14 @@ import reha.sql
 
 from dataclasses import field
 from reha.prototypes.workflows.user import user_workflow
-from reiter.application.app import Application, BrowserApplication
 from reiter.application.browser import TemplateLoader
+from uvcreha.database import Database
+
+
+# Load essentials
+importscan.scan(reha.prototypes)
+importscan.scan(uvcreha.browser)
+importscan.scan(uvcreha.api)
 
 
 ### Middlewares
@@ -104,61 +110,41 @@ twoFA = reiter.auth.utilities.TwoFA(
 )
 
 
-# SQL engine
-from reha.sql.crud import SQLCRUD
+# Arango
+from reha.arango.app import Request, Application, API
+from reha.arango.crud import ArangoCRUD
+from reha.arango.database import Connector
 from uvcreha.database import Database
-from roughrider.sqlalchemy.component import SQLAlchemyEngine
-
 
 database = Database(
-    engine=SQLAlchemyEngine.from_url(
-        name="sql",
-        url="sqlite:///example.db"
+    engine=Connector.from_config(
+        user="ck",
+        password="ck",
+        database="p2",
+        url="http://127.0.0.1:8529"
     ),
-    binder=SQLCRUD
+    binder=ArangoCRUD
 )
 
 
-# Request
-class SQLRequest(uvcreha.request.Request):
+# SQL engine
+# from reha.sql.app import Request
+# from reha.sql.app import Application, API
+# from reha.sql.crud import SQLCRUD
+# from roughrider.sqlalchemy.component import SQLAlchemyEngine
 
-    def __init__(self, session, *args, **kwargs):
-        self.session = session
-        super().__init__(*args, **kwargs)
-
-    def get_database(self):
-        return self.session
-
-    def get_crud(self, name):
-        ct = self.app.utilities['contents'][name]
-        binder = self.app.utilities['database'].binder
-        crud = binder(ct.model, self.app, self.session)
-        return ct, crud
+# database = Database(
+#     engine=SQLAlchemyEngine.from_url(
+#         name="sql",
+#         url="sqlite:///example.db"
+#     ),
+#     binder=SQLCRUD
+# )
 
 
-# Application
-class SQLResolver:
-
-    def resolve(self, path: str, environ: dict):
-        route = self.routes.match_method(path, environ['REQUEST_METHOD'])
-        if route is not None:
-            with self.utilities['database'].engine.session() as session:
-                request = SQLRequest(session, self, environ, route)
-                return route.endpoint(request, **route.params)
-
-
-class SQLApplication(SQLResolver, BrowserApplication):
-    pass
-
-
-class SQLAPI(SQLResolver, Application):
-    pass
-
-
-browser_app = SQLApplication(
+browser_app = Application(
     ui=uvcreha.browser.ui,
     routes=uvcreha.browser.routes,
-    request_factory=SQLRequest,
     utilities={
         "webpush": webpush,
         "emailer": emailer,
@@ -170,9 +156,8 @@ browser_app = SQLApplication(
     }
 )
 
-api_app = SQLAPI(
+api_app = API(
     routes=uvcreha.api.routes,
-    request_factory=SQLRequest,
     utilities={
         "webpush": webpush,
         "emailer": emailer,
@@ -201,14 +186,14 @@ admin_authentication = reiter.auth.components.Auth(
     )
 )
 
-class SQLAdminRequest(reha.client.app.AdminRequest, SQLRequest):
-    pass
+class AdminRequest(reha.client.app.AdminRequest, Request):
+     pass
 
 
-backend_app = SQLApplication(
+backend_app = Application(
     ui=uvcreha.browser.ui,
     routes=reha.client.app.routes,
-    request_factory=SQLAdminRequest,
+    request_factory=AdminRequest,
     utilities={
         "webpush": webpush,
         "emailer": emailer,
@@ -232,10 +217,10 @@ class Index(uvcreha.browser.Page):
     def GET(self):
         return {}
 
-importscan.scan(reha.prototypes)
-importscan.scan(reha.sql)  # gathering content types
-importscan.scan(uvcreha.browser)  # gathering routes elements.
-importscan.scan(uvcreha.api)  # added API routes.
+
+
+#importscan.scan(reha.sql)  # gathering content types
+importscan.scan(reha.arango)  # gathering content types
 importscan.scan(reha.client)  # backend
 
 
@@ -247,7 +232,17 @@ importscan.scan(reha.ukh_theme)  # Collecting UI elements
 
 
 # create tables
-reha.sql.mappers.metadata.create_all(database.engine.engine)
+# reha.sql.mappers.metadata.create_all(database.engine.engine)
+
+# create collections
+from reha.arango import KEY
+
+db = database.engine.get_database()
+for name, content in uvcreha.contents.registry:
+    if collection := content.metadata.get(KEY):
+        print(f'{content.model.__name__} can be fetched through Arango')
+        if not db.has_collection(collection):
+            db.create_collection(collection)
 
 
 # Load content types
@@ -263,7 +258,7 @@ from horseman.mapping import Mapping
 # Run me
 bjoern.run(
     host="0.0.0.0",
-    port=8080,
+    port=8082,
     reuse_port=True,
     wsgi_app=Mapping({
         "/": fanstatic.Fanstatic(
