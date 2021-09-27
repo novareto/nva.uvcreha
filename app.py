@@ -61,22 +61,6 @@ class Source(reiter.auth.meta.Source):
             return User(loginname)
 
 
-authentication = reiter.auth.components.Auth(
-    user_key="uvcreha.principal",
-    session_key=session.environ_key,
-    sources=[Source({"test": "test"})],
-    filters=(
-        reiter.auth.filters.security_bypass([
-            "/login"
-        ]),
-        reiter.auth.filters.secured(path="/login"),
-        reiter.auth.filters.filter_user_state(states=(
-            user_workflow.states.inactive,
-            user_workflow.states.closed
-        )),
-        reiter.auth.filters.TwoFA(path="/2FA")
-    )
-)
 
 
 ### Utilities
@@ -125,7 +109,48 @@ database = Database(
     ),
     binder=ArangoCRUD
 )
+from uvcreha.contents import registry
 
+class ArangoSource(reiter.auth.meta.Source):
+
+    def __init__(self, db):
+        self.db = db
+
+    def find(self, credentials: dict):
+        db = self.db.engine.get_database()
+        cur = db['users'].find(dict(loginname=credentials['login']))
+        if cur.count() == 1:
+            user = cur.next()
+            if user['password'] == credentials['password']:
+                model = registry['user'].model
+                return model.factory(**user)
+
+    def fetch(self, loginname):
+        db = self.db.engine.get_database()
+        cur = db['users'].find(dict(loginname=loginname))
+        if cur.count() == 1:
+            user = cur.next()
+            model = registry['user'].model
+            return model.factory(**user)
+
+
+
+authentication = reiter.auth.components.Auth(
+    user_key="uvcreha.principal",
+    session_key=session.environ_key,
+    sources=[ArangoSource(database)],
+    filters=(
+        reiter.auth.filters.security_bypass([
+            "/login"
+        ]),
+        reiter.auth.filters.secured(path="/login"),
+        reiter.auth.filters.filter_user_state(states=(
+            user_workflow.states.inactive,
+            user_workflow.states.closed
+        )),
+        reiter.auth.filters.TwoFA(path="/2FA")
+    )
+)
 
 # SQL engine
 # from reha.sql.app import Request
@@ -209,19 +234,20 @@ backend_app = Application(
 TEMPLATES = TemplateLoader(".")
 
 
-@browser_app.routes.register('/')
-class Index(uvcreha.browser.Page):
-
-    template = TEMPLATES['index']
-
-    def GET(self):
-        return {}
+#@browser_app.routes.register('/')
+#class Index(uvcreha.browser.Page):
+#
+#    template = TEMPLATES['index']
+#
+#    def GET(self):
+#        return {}
 
 
 
 #importscan.scan(reha.sql)  # gathering content types
 importscan.scan(reha.arango)  # gathering content types
 importscan.scan(reha.client)  # backend
+#importscan.scan(uvcreha)  # backend
 
 
 # import themes
@@ -245,10 +271,19 @@ for name, content in uvcreha.contents.registry:
             db.create_collection(collection)
 
 
+# Plugins
+import uv.ozg
+import uv.ozg.app
+
+importscan.scan(uv.ozg)
+uv.ozg.app.load_content_types(pathlib.Path("./content_types"))
+
+
 # Load content types
 from uvcreha.contents import load_content_types
 
 load_content_types(pathlib.Path("./content_types"))
+
 
 
 # URL Mapping
