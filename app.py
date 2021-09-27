@@ -22,6 +22,14 @@ from reiter.application.browser import TemplateLoader
 from uvcreha.database import Database
 
 
+# We register the content
+from reha.prototypes.contents import User, File, Document
+
+uvcreha.contents.registry.register('user')(User)
+uvcreha.contents.registry.register('file')(File)
+uvcreha.contents.registry.register('document')(Document)
+
+
 # Load essentials
 importscan.scan(reha.prototypes)
 importscan.scan(uvcreha.browser)
