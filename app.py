@@ -3,6 +3,7 @@ import fanstatic
 import pathlib
 import importscan
 import uvcreha
+import uvcreha.app
 import uvcreha.api
 import uvcreha.user
 import uvcreha.browser
@@ -20,6 +21,14 @@ from dataclasses import field
 from reha.prototypes.workflows.user import user_workflow
 from reiter.application.browser import TemplateLoader
 from uvcreha.database import Database
+
+
+# We register the content
+from reha.prototypes.contents import User, File, Document
+
+uvcreha.contents.registry.register('user')(User)
+uvcreha.contents.registry.register('file')(File)
+uvcreha.contents.registry.register('document')(Document)
 
 
 # Load essentials
@@ -61,24 +70,6 @@ class Source(reiter.auth.meta.Source):
             return User(loginname)
 
 
-authentication = reiter.auth.components.Auth(
-    user_key="uvcreha.principal",
-    session_key=session.environ_key,
-    sources=[Source({"test": "test"})],
-    filters=(
-        reiter.auth.filters.security_bypass([
-            "/login"
-        ]),
-        reiter.auth.filters.secured(path="/login"),
-        reiter.auth.filters.filter_user_state(states=(
-            user_workflow.states.inactive,
-            user_workflow.states.closed
-        )),
-        reiter.auth.filters.TwoFA(path="/2FA")
-    )
-)
-
-
 ### Utilities
 
 # flash
@@ -111,10 +102,10 @@ twoFA = reiter.auth.utilities.TwoFA(
 
 
 # Arango
-from reha.arango.app import Request, Application, API
 from reha.arango.crud import ArangoCRUD
-from reha.arango.database import Connector
+from reiter.arango.connector import Connector
 from uvcreha.database import Database
+
 
 database = Database(
     engine=Connector.from_config(
@@ -127,22 +118,64 @@ database = Database(
 )
 
 
+class ArangoSource(reiter.auth.meta.Source):
+
+    def __init__(self, db):
+        self.db = db
+
+    def find(self, credentials: dict):
+        db = self.db.engine.get_database()
+        cur = db['users'].find(dict(loginname=credentials['login']))
+        if cur.count() == 1:
+            user = cur.next()
+            if user['password'] == credentials['password']:
+                model = uvcreha.contents.registry['user'].model
+                return model.factory(**user)
+
+    def fetch(self, loginname):
+        db = self.db.engine.get_database()
+        cur = db['users'].find(dict(loginname=loginname))
+        if cur.count() == 1:
+            user = cur.next()
+            model = uvcreha.contents.registry['user'].model
+            return model.factory(**user)
+
+
+
+authentication = reiter.auth.components.Auth(
+    user_key="uvcreha.principal",
+    session_key=session.environ_key,
+    sources=[ArangoSource(database)],
+    filters=(
+        reiter.auth.filters.security_bypass([
+            "/login"
+        ]),
+        reiter.auth.filters.secured(path="/login"),
+        reiter.auth.filters.filter_user_state(states=(
+            user_workflow.states.inactive,
+            user_workflow.states.closed
+        )),
+        reiter.auth.filters.TwoFA(path="/2FA")
+    )
+)
+
 # SQL engine
-# from reha.sql.app import Request
-# from reha.sql.app import Application, API
 # from reha.sql.crud import SQLCRUD
 # from roughrider.sqlalchemy.component import SQLAlchemyEngine
 
-# database = Database(
-#     engine=SQLAlchemyEngine.from_url(
+# engine = SQLAlchemyEngine.from_url(
 #         name="sql",
 #         url="sqlite:///example.db"
 #     ),
-#     binder=SQLCRUD
+
+# database = Database(
+#     engine=engine,
+#     binder=SQLCRUD,
+#     context_manager=engine.session
 # )
 
 
-browser_app = Application(
+browser_app = uvcreha.app.Application(
     ui=uvcreha.browser.ui,
     routes=uvcreha.browser.routes,
     utilities={
@@ -156,7 +189,7 @@ browser_app = Application(
     }
 )
 
-api_app = API(
+api_app = uvcreha.app.API(
     routes=uvcreha.api.routes,
     utilities={
         "webpush": webpush,
@@ -186,11 +219,11 @@ admin_authentication = reiter.auth.components.Auth(
     )
 )
 
-class AdminRequest(reha.client.app.AdminRequest, Request):
+class AdminRequest(reha.client.app.AdminRequest, uvcreha.app.Request):
      pass
 
 
-backend_app = Application(
+backend_app = uvcreha.app.Application(
     ui=uvcreha.browser.ui,
     routes=reha.client.app.routes,
     request_factory=AdminRequest,
@@ -209,19 +242,20 @@ backend_app = Application(
 TEMPLATES = TemplateLoader(".")
 
 
-@browser_app.routes.register('/')
-class Index(uvcreha.browser.Page):
-
-    template = TEMPLATES['index']
-
-    def GET(self):
-        return {}
+#@browser_app.routes.register('/')
+#class Index(uvcreha.browser.Page):
+#
+#    template = TEMPLATES['index']
+#
+#    def GET(self):
+#        return {}
 
 
 
 #importscan.scan(reha.sql)  # gathering content types
 importscan.scan(reha.arango)  # gathering content types
 importscan.scan(reha.client)  # backend
+#importscan.scan(uvcreha)  # backend
 
 
 # import themes
@@ -245,14 +279,48 @@ for name, content in uvcreha.contents.registry:
             db.create_collection(collection)
 
 
+# Plugins
+import uv.ozg
+import uv.ozg.app
+
+importscan.scan(uv.ozg)
+uv.ozg.app.load_content_types(pathlib.Path("./content_types"))
+
+
 # Load content types
 from uvcreha.contents import load_content_types
 
 load_content_types(pathlib.Path("./content_types"))
 
 
+
 # URL Mapping
 from horseman.mapping import Mapping
+wsgi_app=Mapping({
+    "/": fanstatic.Fanstatic(
+        session(
+            authentication(
+                browser_app
+            )
+        ),
+        compile=True,
+        recompute_hashes=True,
+        bottom=True,
+        publisher_signature="static"
+    ),
+    "/backend": fanstatic.Fanstatic(
+        session(
+            admin_authentication(
+                backend_app
+            )
+        ),
+        compile=True,
+        recompute_hashes=True,
+        bottom=True,
+        publisher_signature="static"
+    ),
+    "/api": api_app
+})
 
 
 # Run me
@@ -260,29 +328,5 @@ bjoern.run(
     host="0.0.0.0",
     port=8082,
     reuse_port=True,
-    wsgi_app=Mapping({
-        "/": fanstatic.Fanstatic(
-            session(
-                authentication(
-                    browser_app
-                )
-            ),
-            compile=True,
-            recompute_hashes=True,
-            bottom=True,
-            publisher_signature="static"
-        ),
-        "/backend": fanstatic.Fanstatic(
-            session(
-                admin_authentication(
-                    backend_app
-                )
-            ),
-            compile=True,
-            recompute_hashes=True,
-            bottom=True,
-            publisher_signature="static"
-        ),
-        "/api": api_app
-    })
+    wsgi_app=wsgi_app
 )
