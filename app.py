@@ -5,6 +5,7 @@ import importscan
 import uvcreha
 import uvcreha.app
 import uvcreha.api
+import uvcreha.auth.source
 import uvcreha.user
 import uvcreha.browser
 import uvcreha.contents
@@ -16,15 +17,11 @@ import reiter.auth.filters
 import reiter.auth.components
 import reiter.auth.utilities
 import reha.sql
-
-from dataclasses import field
+from reha.prototypes.contents import User, File, Document
 from reha.prototypes.workflows.user import user_workflow
 from reiter.application.browser import TemplateLoader
-from uvcreha.database import Database
+from database.arango import database
 
-
-# We register the content
-from reha.prototypes.contents import User, File, Document
 
 uvcreha.contents.registry.register('user')(User)
 uvcreha.contents.registry.register('file')(File)
@@ -47,27 +44,9 @@ session = uvcreha.plugins.session_middleware(
     environ_key="uvcreha.test.session"
 )
 
-# authentication
-class User(uvcreha.user.User):
-
-    def __init__(self, login):
-        self.id = login
-        self.title = f"User <{login}>"
-
-
-class Source(reiter.auth.meta.Source):
-
-    def __init__(self, users: dict):
-        self._users = users
-
-    def find(self, credentials: dict):
-        if credentials['login'] in self._users:
-            if self._users[credentials['login']] == credentials['password']:
-                return User(credentials['login'])
-
-    def fetch(self, loginname):
-        if loginname in self._users:
-            return User(loginname)
+session_getter = reiter.auth.components.session_from_environ(
+    session.environ_key
+)
 
 
 ### Utilities
@@ -101,51 +80,11 @@ twoFA = reiter.auth.utilities.TwoFA(
 )
 
 
-# Arango
-from reha.arango.crud import ArangoCRUD
-from reiter.arango.connector import Connector
-from uvcreha.database import Database
-
-
-database = Database(
-    engine=Connector.from_config(
-        user="ck",
-        password="ck",
-        database="p2",
-        url="http://127.0.0.1:8529"
-    ),
-    binder=ArangoCRUD
-)
-
-
-class ArangoSource(reiter.auth.meta.Source):
-
-    def __init__(self, db):
-        self.db = db
-
-    def find(self, credentials: dict):
-        db = self.db.engine.get_database()
-        cur = db['users'].find(dict(loginname=credentials['login']))
-        if cur.count() == 1:
-            user = cur.next()
-            if user['password'] == credentials['password']:
-                model = uvcreha.contents.registry['user'].model
-                return model.factory(**user)
-
-    def fetch(self, loginname):
-        db = self.db.engine.get_database()
-        cur = db['users'].find(dict(loginname=loginname))
-        if cur.count() == 1:
-            user = cur.next()
-            model = uvcreha.contents.registry['user'].model
-            return model.factory(**user)
-
-
-
+# Auth
 authentication = reiter.auth.components.Auth(
     user_key="uvcreha.principal",
-    session_key=session.environ_key,
-    sources=[ArangoSource(database)],
+    session_getter=session_getter,
+    sources=[uvcreha.auth.source.DatabaseSource(database)],
     filters=(
         reiter.auth.filters.security_bypass([
             "/login"
@@ -158,22 +97,6 @@ authentication = reiter.auth.components.Auth(
         reiter.auth.filters.TwoFA(path="/2FA")
     )
 )
-
-# SQL engine
-# from reha.sql.crud import SQLCRUD
-# from roughrider.sqlalchemy.component import SQLAlchemyEngine
-
-# engine = SQLAlchemyEngine.from_url(
-#         name="sql",
-#         url="sqlite:///example.db"
-#     ),
-
-# database = Database(
-#     engine=engine,
-#     binder=SQLCRUD,
-#     context_manager=engine.session
-# )
-
 
 browser_app = uvcreha.app.Application(
     ui=uvcreha.browser.ui,
@@ -202,25 +125,27 @@ api_app = uvcreha.app.API(
 # Backend
 import reha.client
 import reha.client.app
+import reiter.auth.testing
 
 admin_authentication = reiter.auth.components.Auth(
     user_key="backend.principal",
-    session_key=session.environ_key,
-    sources=[Source({"admin": "admin"})],
+    session_getter=session_getter,
+    sources=[reiter.auth.testing.DictSource({"admin": "admin"})],
     filters=(
         reiter.auth.filters.security_bypass([
             "/login"
         ]),
         reiter.auth.filters.secured(path="/login"),
-        reiter.auth.filters.filter_user_state(states=(
-            user_workflow.states.inactive,
-            user_workflow.states.closed
-        )),
+        #reiter.auth.filters.filter_user_state(states=(
+        #    user_workflow.states.inactive,
+        #    user_workflow.states.closed
+        #)),
     )
 )
 
+
 class AdminRequest(reha.client.app.AdminRequest, uvcreha.app.Request):
-     pass
+    pass
 
 
 backend_app = uvcreha.app.Application(
@@ -238,25 +163,7 @@ backend_app = uvcreha.app.Application(
 )
 
 
-# My views
-TEMPLATES = TemplateLoader(".")
-
-
-#@browser_app.routes.register('/')
-#class Index(uvcreha.browser.Page):
-#
-#    template = TEMPLATES['index']
-#
-#    def GET(self):
-#        return {}
-
-
-
-#importscan.scan(reha.sql)  # gathering content types
-importscan.scan(reha.arango)  # gathering content types
 importscan.scan(reha.client)  # backend
-#importscan.scan(uvcreha)  # backend
-
 
 # import themes
 # import reha.siguv_theme
@@ -265,18 +172,11 @@ import reha.ukh_theme
 importscan.scan(reha.ukh_theme)  # Collecting UI elements
 
 
-# create tables
-# reha.sql.mappers.metadata.create_all(database.engine.engine)
+# create collections/tables
+# from reha.sql import setup_contents
+from reha.arango import setup_contents
 
-# create collections
-from reha.arango import KEY
-
-db = database.engine.get_database()
-for name, content in uvcreha.contents.registry:
-    if collection := content.metadata.get(KEY):
-        print(f'{content.model.__name__} can be fetched through Arango')
-        if not db.has_collection(collection):
-            db.create_collection(collection)
+setup_contents(database)
 
 
 # Plugins
@@ -293,10 +193,9 @@ from uvcreha.contents import load_content_types
 load_content_types(pathlib.Path("./content_types"))
 
 
-
 # URL Mapping
 from horseman.mapping import Mapping
-wsgi_app=Mapping({
+wsgi_app = Mapping({
     "/": fanstatic.Fanstatic(
         session(
             authentication(
