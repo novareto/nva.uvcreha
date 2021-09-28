@@ -1,16 +1,16 @@
 # SQL engine
-from reha.sql.crud import SQLCRUD
-from roughrider.sqlalchemy.component import SQLAlchemyEngine
 
+def init_database(registry):
+    import importscan
+    import reha.sql
+    from roughrider.sqlalchemy.component import SQLAlchemyEngine
 
-engine = SQLAlchemyEngine.from_url(
-    name="sql",
-    url="sqlite:///example.db"
-)
-
-
-database = Database(
-    engine=engine,
-    binder=SQLCRUD,
-    context_manager=engine.session
-)
+    database = reha.sql.Database(
+        SQLAlchemyEngine.from_url(
+            name="sql",
+            url="sqlite:///example.db"
+        )
+    )
+    importscan(reha.sql)
+    database.instanciate()
+    return database

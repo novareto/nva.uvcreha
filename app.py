@@ -16,26 +16,24 @@ import reiter.auth.meta
 import reiter.auth.filters
 import reiter.auth.components
 import reiter.auth.utilities
-from reha.prototypes.contents import User, File, Document
+from reha.prototypes import contents
 from reha.prototypes.workflows.user import user_workflow
 from reiter.application.browser import TemplateLoader
-from database.arango import database
 
 
 # setup contents
-uvcreha.contents.registry.register('user', User)
-uvcreha.contents.registry.register('file', File)
-uvcreha.contents.registry.register('document', Document)
+uvcreha.contents.registry.register('user', contents.User)
+uvcreha.contents.registry.register('file', contents.File)
+uvcreha.contents.registry.register('document', contents.Document)
 
-database.instanciate({
-    "users": uvcreha.contents.registry['user'],
-    "files": uvcreha.contents.registry['file'],
-    "documents": uvcreha.contents.registry['document']
-})
+
+from database.arango import init_database
+from database.sql import init_database
+
+database = init_database(uvcreha.contents.registry)
 
 
 # Load essentials
-#importscan.scan(reha.prototypes)
 importscan.scan(uvcreha.browser)
 importscan.scan(uvcreha.api)
 
@@ -176,11 +174,6 @@ importscan.scan(reha.client)  # backend
 import reha.ukh_theme
 
 importscan.scan(reha.ukh_theme)  # Collecting UI elements
-
-
-# create collections/tables
-# from reha.sql import setup_contents
-
 
 
 # Plugins
