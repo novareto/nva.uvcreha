@@ -27,8 +27,8 @@ uvcreha.contents.registry.register('file', contents.File)
 uvcreha.contents.registry.register('document', contents.Document)
 
 
-from database.arango import init_database
-from database.sql import init_database
+from config.database.arango import init_database
+from config.database.sql import init_database
 import reha.sql
 
 database = init_database(reha.sql.mappers)
@@ -182,14 +182,14 @@ importscan.scan(reha.siguv_theme)  # Collecting UI elements
 
 
 # Plugins
-import uv.ozg
-import uv.ozg.app
+#import uv.ozg
+#import uv.ozg.app
 
-importscan.scan(uv.ozg)
-uv.ozg.app.load_content_types(pathlib.Path("./schemas/ozg_content_types"))
+#importscan.scan(uv.ozg)
+#uv.ozg.app.load_content_types(pathlib.Path("./schemas/ozg_content_types"))
 
-import reha.example
-importscan.scan(reha.example)
+#import reha.example
+#importscan.scan(reha.example)
 
 #from reha.example.principal import MyPrincipal
 #uvcreha.contents.registry.register('user', MyPrincipal)
