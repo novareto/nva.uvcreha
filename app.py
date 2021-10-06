@@ -64,8 +64,8 @@ flash = uvcreha.plugins.flash_messages(
 
 # webpush
 webpush = uvcreha.plugins.webpush_plugin(
-    public_key=pathlib.Path("identities/public_key.pem"),
-    private_key=pathlib.Path("identities/private_key.pem"),
+    public_key=pathlib.Path("config/identities/public_key.pem"),
+    private_key=pathlib.Path("config/identities/private_key.pem"),
     vapid_claims={
         "sub": "mailto:cklinger@novareto.de",
         "aud": "https://updates.push.services.mozilla.com"
@@ -186,7 +186,7 @@ import uv.ozg
 import uv.ozg.app
 
 importscan.scan(uv.ozg)
-uv.ozg.app.load_content_types(pathlib.Path("./content_types"))
+uv.ozg.app.load_content_types(pathlib.Path("./schemas/ozg_content_types"))
 
 import reha.example
 importscan.scan(reha.example)
@@ -198,7 +198,7 @@ importscan.scan(reha.example)
 # Load content types
 from uvcreha.contents import load_content_types
 
-load_content_types(pathlib.Path("./content_types"))
+load_content_types(pathlib.Path("./schemas/content_types"))
 
 
 # URL Mapping
