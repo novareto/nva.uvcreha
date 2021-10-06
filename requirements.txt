@@ -1,6 +1,6 @@
 importscan == 0.2
 colorlog == 6.4.1
-bjoern == 3.1.0
+waitress
 fanstatic == 1.0
 sqlalchemy == 1.4.11
 
@@ -13,13 +13,13 @@ git+https://github.com/HorsemanWSGI/roughrider.selenium#egg=roughrider.selenium
 git+https://github.com/HorsemanWSGI/roughrider.workflow.git#egg=roughrider.workflow
 git+https://github.com/novareto/jsonschema_wtforms.git#egg=jsonschema_wtforms
 git+https://github.com/novareto/reiter.amqp.git#egg=reiter.amqp
-git+https://github.com/novareto/reiter.application.git#egg=reiter.application
 git+https://github.com/novareto/reiter.events.git#egg=reiter.events
 git+https://github.com/novareto/reiter.form.git#egg=reiter.form
 git+https://github.com/novareto/reiter.jsonschema.git#egg=reiter.jsonschema
-git+https://github.com/novareto/reiter.view.git#egg=reiter.view
 git+ssh://git@github.com/HorsemanWSGI/roughrider.sqlalchemy.git#egg=roughrider.sqlalchemy
 
+-e git+https://github.com/novareto/reiter.application.git#egg=reiter.application
+-e git+https://github.com/novareto/reiter.view.git#egg=reiter.view
 -e git+ssh://git@github.com/novareto/reha.arango.git#egg=reha.arango
 -e git+ssh://git@github.com/novareto/reha.client.git#egg=reha.client
 -e git+ssh://git@github.com/novareto/reha.prototypes.git#egg=reha.prototypes

@@ -29,8 +29,9 @@ uvcreha.contents.registry.register('document', contents.Document)
 
 from database.arango import init_database
 from database.sql import init_database
+import reha.sql
 
-database = init_database(uvcreha.contents.registry)
+database = init_database(reha.sql.mappers)
 
 
 # Load essentials
@@ -86,9 +87,9 @@ twoFA = reiter.auth.utilities.TwoFA(
 
 # Auth
 authentication = reiter.auth.components.Auth(
+    sources=[],
     user_key="uvcreha.principal",
     session_getter=session_getter,
-    sources=[uvcreha.auth.source.DatabaseSource(database)],
     filters=(
         reiter.auth.filters.security_bypass([
             "/login"
@@ -98,31 +99,35 @@ authentication = reiter.auth.components.Auth(
             user_workflow.states.inactive,
             user_workflow.states.closed
         )),
-        reiter.auth.filters.TwoFA(path="/2FA")
+        reiter.auth.filters.TwoFA("/2FA", twoFA.check_twoFA)
     )
 )
 
 browser_app = uvcreha.app.Application(
+    database=database,
     ui=uvcreha.browser.ui,
     routes=uvcreha.browser.routes,
+    authentication=authentication,
     utilities={
         "webpush": webpush,
         "emailer": emailer,
         "flash": flash,
-        "authentication": authentication,
         "twoFA": twoFA,
-        "database": database,
-        "contents": uvcreha.contents.registry,
     }
 )
 
+browser_app.authentication.sources.append(
+    uvcreha.auth.source.DatabaseSource(browser_app)
+)
+
+
 api_app = uvcreha.app.API(
+    database=database,
     routes=uvcreha.api.routes,
     utilities={
         "webpush": webpush,
         "emailer": emailer,
         "database": database,
-        "contents": uvcreha.contents.registry,
     }
 )
 
@@ -153,6 +158,8 @@ class AdminRequest(reha.client.app.AdminRequest, uvcreha.app.Request):
 
 
 backend_app = uvcreha.app.Application(
+    database=database,
+    authentication=admin_authentication,
     ui=uvcreha.browser.ui,
     routes=reha.client.app.routes,
     request_factory=AdminRequest,
@@ -160,9 +167,6 @@ backend_app = uvcreha.app.Application(
         "webpush": webpush,
         "emailer": emailer,
         "flash": flash,
-        "authentication": admin_authentication,
-        "database": database,
-        "contents": uvcreha.contents.registry,
     }
 )
 
@@ -170,10 +174,11 @@ backend_app = uvcreha.app.Application(
 importscan.scan(reha.client)  # backend
 
 # import themes
-# import reha.siguv_theme
+import reha.siguv_theme
 import reha.ukh_theme
 
-importscan.scan(reha.ukh_theme)  # Collecting UI elements
+#importscan.scan(reha.ukh_theme)  # Collecting UI elements
+importscan.scan(reha.siguv_theme)  # Collecting UI elements
 
 
 # Plugins
@@ -182,6 +187,12 @@ import uv.ozg.app
 
 importscan.scan(uv.ozg)
 uv.ozg.app.load_content_types(pathlib.Path("./content_types"))
+
+import reha.example
+importscan.scan(reha.example)
+
+#from reha.example.principal import MyPrincipal
+#uvcreha.contents.registry.register('user', MyPrincipal)
 
 
 # Load content types
@@ -194,22 +205,14 @@ load_content_types(pathlib.Path("./content_types"))
 from horseman.mapping import Mapping
 wsgi_app = Mapping({
     "/": fanstatic.Fanstatic(
-        session(
-            authentication(
-                browser_app
-            )
-        ),
+        session(browser_app),
         compile=True,
         recompute_hashes=True,
         bottom=True,
         publisher_signature="static"
     ),
     "/backend": fanstatic.Fanstatic(
-        session(
-            admin_authentication(
-                backend_app
-            )
-        ),
+        session(backend_app),
         compile=True,
         recompute_hashes=True,
         bottom=True,
@@ -220,9 +223,9 @@ wsgi_app = Mapping({
 
 
 # Run me
-bjoern.run(
-    host="0.0.0.0",
-    port=8082,
-    reuse_port=True,
-    wsgi_app=wsgi_app
-)
+#bjoern.run(
+#    host="0.0.0.0",
+#    port=8082,
+#    reuse_port=True,
+#    wsgi_app=wsgi_app
+#)

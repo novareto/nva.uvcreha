@@ -11,6 +11,6 @@ def init_database(registry):
             url="sqlite:///example.db"
         )
     )
-    importscan(reha.sql)
-    database.instanciate()
+    importscan.scan(reha.sql)
+    database.instanciate(registry)
     return database
